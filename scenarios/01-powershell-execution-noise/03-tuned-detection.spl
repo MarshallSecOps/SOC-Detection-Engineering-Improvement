@@ -2,8 +2,14 @@ index=soc_alerts EventCode=4688
 | where ProcessName="powershell.exe" OR Image="*\\powershell.exe"
 
 | eval suspicious_exec_policy=if(match(CommandLine, "-ExecutionPolicy Bypass"), 1, 0)
-| eval suspicious_encoding=if(match(CommandLine, "-EncodedCommand"), 1, 0)
-| eval suspicious_hidden=if(match(CommandLine, "-WindowStyle Hidden"), 1, 0)
+
+| eval suspicious_encoding=if(
+    match(CommandLine, "(?i)-EncodedCommand") OR match(CommandLine, "(?i)-enc"),
+    1,
+    0
+)
+
+| eval suspicious_hidden=if(match(CommandLine, "(?i)-WindowStyle Hidden"), 1, 0)
 | eval suspicious_inline=if(match(CommandLine, "(?i)IEX|Invoke-Expression"), 1, 0)
 
 | eval suspicious_parent=if(
