@@ -22,7 +22,7 @@ Treating this parameter as a standalone indicator results in excessive noise and
 
 ### 1. Encoded or Obfuscated Execution
 Indicators:
-- `-EncodedCommand`
+- `-EncodedCommand` or `-enc`
 - Inline execution (`IEX`, `Invoke-Expression`)
 
 **Rationale:**
