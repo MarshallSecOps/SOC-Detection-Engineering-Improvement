@@ -1,0 +1,5 @@
+index=soc_alerts EventCode=4688
+| where ProcessName="powershell.exe" OR Image="*\\powershell.exe"
+| where CommandLine="*-ExecutionPolicy Bypass*"
+| table _time, Hostname, User, ProcessName, ParentProcessName, CommandLine, IntegrityLevel
+| sort _time
