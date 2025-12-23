@@ -1,0 +1,29 @@
+index=windows sourcetype=WinEventLog:Sysmon EventCode=1 Image="*powershell.exe"
+| where NOT (
+    (like(ParentImage, "%CcmExec.exe%") AND User="NT AUTHORITY\\SYSTEM") OR
+    (like(ParentImage, "%svchost.exe%") AND User="NT AUTHORITY\\SYSTEM") OR
+    (like(ParentImage, "%wuauclt.exe%") AND User="NT AUTHORITY\\SYSTEM") OR
+    (like(ParentImage, "%services.exe%")) OR
+    (like(ParentImage, "%wsmprovhost.exe%") AND like(User, "%helpdesk%"))
+)
+| where match(CommandLine, "(?i)-e\s|-enc|-encodedcommand|-windowstyle\s+hidden|-exec\s+bypass|-nop") 
+   OR like(ParentImage, "%EXCEL.EXE%") 
+   OR like(ParentImage, "%WINWORD.EXE%") 
+   OR like(ParentImage, "%POWERPNT.EXE%")
+   OR like(ParentImage, "%\\Downloads\\%")
+   OR like(ParentImage, "%\\AppData\\Local\\Temp\\%")
+| eval risk_score = 0
+| eval risk_score = if(match(CommandLine, "(?i)-e\s|-enc|-encodedcommand"), risk_score + 3, risk_score)
+| eval risk_score = if(match(CommandLine, "(?i)-windowstyle\s+hidden"), risk_score + 2, risk_score)
+| eval risk_score = if(match(CommandLine, "(?i)-exec\s+bypass|-nop"), risk_score + 2, risk_score)
+| eval risk_score = if(like(ParentImage, "%EXCEL.EXE%") OR like(ParentImage, "%WINWORD.EXE%") OR like(ParentImage, "%POWERPNT.EXE%"), risk_score + 4, risk_score)
+| eval risk_score = if(like(ParentImage, "%\\Downloads\\%") OR like(ParentImage, "%\\AppData\\Local\\Temp\\%"), risk_score + 3, risk_score)
+| eval risk_score = if(NOT like(User, "%SYSTEM%") AND NOT like(User, "%svc-%"), risk_score + 1, risk_score)
+| eval severity = case(
+    risk_score >= 7, "CRITICAL",
+    risk_score >= 5, "HIGH",
+    risk_score >= 3, "MEDIUM",
+    1==1, "LOW"
+)
+| table _time ComputerName User Image ParentImage CommandLine risk_score severity
+| sort -risk_score, -_time
