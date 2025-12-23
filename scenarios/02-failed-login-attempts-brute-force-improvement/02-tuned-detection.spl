@@ -1,1 +1,46 @@
-cvbcv
+index=windows sourcetype=WinEventLog:Security EventCode=4625
+| where NOT (
+    (like(IpAddress, "10.%") OR like(IpAddress, "172.16.%") OR like(IpAddress, "192.168.%")) AND 
+    (SubStatus="0xC000006A" OR SubStatus="0xC0000064") AND
+    NOT (like(TargetUserName, "admin%") OR like(TargetUserName, "svc-%") OR TargetUserName="Administrator")
+)
+| where NOT (
+    like(TargetUserName, "svc-%") AND like(WorkstationName, "%VPN%")
+)
+| bin _time span=15m
+| stats 
+    count as failure_count,
+    dc(TargetUserName) as unique_users,
+    dc(WorkstationName) as unique_workstations,
+    values(TargetUserName) as target_users,
+    values(SubStatus) as failure_reasons,
+    earliest(_time) as first_failure,
+    latest(_time) as last_failure
+    by IpAddress, _time
+| where failure_count > 10 OR unique_users > 3
+| eval external_source = if(NOT (like(IpAddress, "10.%") OR like(IpAddress, "172.16.%") OR like(IpAddress, "192.168.%")), 1, 0)
+| eval privileged_target = if(like(target_users, "%admin%") OR like(target_users, "%svc-%") OR like(target_users, "%Administrator%"), 1, 0)
+| eval spray_pattern = if(unique_users > 5, 1, 0)
+| eval rapid_velocity = if((last_failure - first_failure) < 300, 1, 0)
+| eval risk_score = 0
+| eval risk_score = if(external_source=1, risk_score + 4, risk_score)
+| eval risk_score = if(privileged_target=1, risk_score + 3, risk_score)
+| eval risk_score = if(spray_pattern=1, risk_score + 3, risk_score)
+| eval risk_score = if(rapid_velocity=1, risk_score + 2, risk_score)
+| eval risk_score = if(failure_count > 25, risk_score + 2, risk_score)
+| eval risk_score = if(unique_workstations > 5, risk_score + 2, risk_score)
+| join type=left IpAddress [
+    search index=windows sourcetype=WinEventLog:Security EventCode=4624
+    | where _time > relative_time(now(), "-30m")
+    | stats count as success_count by IpAddress
+]
+| eval risk_score = if(isnotnull(success_count) AND success_count > 0, risk_score + 4, risk_score)
+| eval severity = case(
+    risk_score >= 10, "CRITICAL",
+    risk_score >= 7, "HIGH",
+    risk_score >= 4, "MEDIUM",
+    1==1, "LOW"
+)
+| table _time IpAddress target_users failure_count unique_users unique_workstations success_count risk_score severity first_failure last_failure failure_reasons
+| sort -risk_score, -failure_count
+
