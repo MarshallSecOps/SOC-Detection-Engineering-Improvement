@@ -1,0 +1,68 @@
+/*
+ * BASELINE DETECTION: Failed Login Attempts / Brute Force (NOISY)
+ * 
+ * Purpose: Detect failed authentication attempts indicating potential brute force attacks
+ * Status: UNTUNED - Generates excessive false positives
+ * 
+ * Problem: This baseline query triggers on ANY account with more than 5 failed logins
+ * without considering:
+ *   - Internal vs external source IPs
+ *   - Account privilege levels
+ *   - Legitimate failure patterns (VPN, password resets, service accounts)
+ *   - Time-based velocity analysis
+ *   - Success correlation after failures
+ * 
+ * Typical Production Impact:
+ *   - Alert Volume: 600+ alerts per day (medium enterprise, 5,000 endpoints)
+ *   - False Positive Rate: 88% (528 FP out of 600 alerts)
+ *   - Analyst Time Wasted: ~40 hours per day across SOC team
+ *   - Real Threats: Buried in noise, delayed response times
+ * 
+ * Common False Positive Triggers:
+ *   1. Users forgetting passwords after holidays or forced resets
+ *   2. VPN connection retry loops (service accounts, infrastructure)
+ *   3. Mobile devices with cached incorrect credentials
+ *   4. Service account password rotation mismatches
+ *   5. SSO/MFA integration failures
+ *   6. Help desk password reset operations
+ *   7. Internal network authentication issues
+ * 
+ * Why This Query Is Problematic:
+ *   - No context: Internal users making typos = external attacker brute forcing
+ *   - No privilege weighting: Non-admin account = Domain Admin account
+ *   - No time analysis: 5 failures over 24 hours = 5 failures in 1 minute
+ *   - No pattern detection: Single user error = organized password spray
+ *   - No success check: Failed attempts only, missing successful compromises
+ * 
+ * Data Source: Windows Security Event ID 4625 (Failed Logon)
+ * Required Fields: TargetUserName, IpAddress
+ * 
+ * MITRE ATT&CK: T1110 (Brute Force)
+ */
+
+index=windows sourcetype=WinEventLog:Security EventCode=4625
+| stats count by TargetUserName, IpAddress
+| where count > 5
+| table TargetUserName IpAddress count
+| sort -count
+
+/*
+ * Result: This query will return hundreds of alerts including:
+ *   - jsmith from 10.50.20.15 with 8 failures (user forgot password)
+ *   - svc-vpn from 10.10.10.5 with 45 failures (VPN retry loop)
+ *   - mbrown from 10.100.50.22 with 12 failures (mobile device cached creds)
+ *   - svc-monitoring from 10.20.30.40 with 20 failures (password rotation mismatch)
+ *   - admin from 203.0.113.45 with 87 failures (REAL ATTACK - buried in noise)
+ * 
+ * The Problem: Legitimate operational issues create overwhelming noise that
+ * buries actual security incidents. Analysts spend hours validating benign
+ * failures instead of investigating real threats.
+ * 
+ * The Solution: See 02-tuned-detection.spl for improved logic with:
+ *   - Internal vs external source filtering
+ *   - Privilege-based risk weighting
+ *   - Time-windowed velocity analysis
+ *   - Pattern recognition (spray vs brute force)
+ *   - Success correlation for confirmed compromises
+ *   - Risk-based severity scoring
+ */
