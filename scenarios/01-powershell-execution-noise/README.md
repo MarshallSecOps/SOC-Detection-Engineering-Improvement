@@ -298,13 +298,13 @@ See: `escalation_criteria.md` for complete decision tree
 ## Files in This Detection
 
 - `README.md` - This file
-- `baseline_detection.spl` - Original noisy detection query
-- `tuned_detection.spl` - Improved detection with filtering and risk scoring
-- `investigation_playbook.md` - Step-by-step triage procedures
-- `false_positive_analysis.md` - Detailed FP scenarios and resolutions
-- `tuning_rationale.md` - Technical justification for tuning decisions
-- `escalation_criteria.md` - Decision tree for escalation vs. closure
-- `metrics.md` - Performance metrics and cost-benefit analysis
+- `01-baseline_detection.spl` - Original noisy detection query
+- `02-tuned_detection.spl` - Improved detection with filtering and risk scoring
+- `03-investigation_playbook.md` - Step-by-step triage procedures
+- `04-false_positive_analysis.md` - Detailed FP scenarios and resolutions
+- `05-tuning_rationale.md` - Technical justification for tuning decisions
+- `06-escalation_criteria.md` - Decision tree for escalation vs. closure
+- `07-metrics.md` - Performance metrics and cost-benefit analysis
 - `screenshots/` - Visual evidence of detection improvements
 
 ---
