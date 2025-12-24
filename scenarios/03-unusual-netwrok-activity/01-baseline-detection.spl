@@ -1,6 +1,0 @@
-index=network sourcetype=firewall action=allowed
-| where NOT (like(dest_domain, "%.microsoft.com%") OR like(dest_domain, "%.office.com%") OR like(dest_domain, "%.windows.net%"))
-| stats count sum(bytes_out) as total_bytes_out by src_ip dest_ip dest_domain dest_port
-| where count > 10 OR total_bytes_out > 10000000
-| table src_ip dest_ip dest_domain dest_port count total_bytes_out
-| sort -count
