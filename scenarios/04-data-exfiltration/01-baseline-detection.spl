@@ -1,0 +1,4 @@
+index=proxy sourcetype=proxy
+| where bytes_out > 52428800
+| table _time src_ip dest_domain bytes_out user url
+| sort -bytes_out, -_time
