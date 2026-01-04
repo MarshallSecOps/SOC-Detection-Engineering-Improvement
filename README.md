@@ -284,7 +284,7 @@ SOC-Detection-Engineering-Improvement/
 │
 ├── README.md                                    # This file - main project overview
 │
-├── 01_powershell_execution/
+├── 01-powershell-execution/
 │   ├── README.md                                # Detection overview and methodology
 │   ├── 01-baseline-detection.spl               # Original noisy query
 │   ├── 02-tuned-detection.spl                  # Production-ready tuned query
@@ -294,7 +294,7 @@ SOC-Detection-Engineering-Improvement/
 │   ├── 06-tuning-rationale.md                  # Technical justification for tuning
 │   └── 07-metrics.md                            # Performance metrics and ROI
 │
-├── 02_failed_login_attempts/
+├── 02-failed-login-attempts-brute-force-improvement/
 │   ├── README.md                                # Detection overview and methodology
 │   ├── 01-baseline-detection.spl               # Original noisy query
 │   ├── 02-tuned-detection.spl                  # Production-ready tuned query
@@ -304,7 +304,7 @@ SOC-Detection-Engineering-Improvement/
 │   ├── 06-tuning-rationale.md                  # Technical justification for tuning
 │   └── 07-metrics.md                            # Performance metrics and ROI
 │
-├── 03_unusual_network_connections/
+├── 03-unusual-network-activity/
 │   ├── README.md                                # Detection overview and methodology
 │   ├── 01-baseline-detection.spl               # Original noisy query
 │   ├── 02-tuned-detection.spl                  # Production-ready tuned query
@@ -314,7 +314,7 @@ SOC-Detection-Engineering-Improvement/
 │   ├── 06-tuning-rationale.md                  # Technical justification for tuning
 │   └── 07-metrics.md                            # Performance metrics and ROI
 │
-└── 04_data_exfiltration_cloud_tuning/
+└── 04-data-exfiltration/
     ├── README.md                                # Detection overview and methodology
     ├── 01-baseline-detection.spl               # Original noisy query
     ├── 02-tuned-detection.spl                  # Production-ready tuned query
@@ -482,4 +482,4 @@ The methodology demonstrated here—systematic FP analysis, multi-layer filterin
 
 **Author:** Marshall  
 **Target Role:** SOC Tier 1 / Tier 2 Analyst   
-**Last Updated:** December 2025
+**Last Updated:** January 2026
