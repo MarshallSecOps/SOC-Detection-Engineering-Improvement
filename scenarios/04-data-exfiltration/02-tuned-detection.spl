@@ -1,0 +1,65 @@
+index=proxy sourcetype=proxy bytes_out > 10485760
+| eval upload_mb = round(bytes_out/1048576, 2)
+| eval dest_domain_lower = lower(dest_domain)
+
+| where NOT (
+    (like(dest_domain_lower, "%sharepoint.com%") OR like(dest_domain_lower, "%onedrive.live.com%")) AND like(user, "%@company.com%") OR
+    (like(dest_domain_lower, "%drive.google.com%") AND like(user, "%@company.com%")) OR
+    (like(dest_domain_lower, "%dropbox.com%") AND match(url, "(?i)/business/")) OR
+    (like(dest_domain_lower, "%box.com%") AND like(user, "%@company.com%")) OR
+    (like(dest_domain_lower, "%s3.amazonaws.com%") AND (like(url, "(?i)/backups/") OR like(url, "(?i)/database-backups/"))) OR
+    (like(dest_domain_lower, "%blob.core.windows.net%") AND like(url, "(?i)/backups/")) OR
+    (like(dest_domain_lower, "%veeam%") OR like(dest_domain_lower, "%backblaze%") OR like(dest_domain_lower, "%carbonite%")) OR
+    (like(dest_domain_lower, "%office365.com%") AND like(user, "%@company.com%")) OR
+    (like(dest_domain_lower, "%youtube.com%") AND like(user, "%marketing@company.com%")) OR
+    (like(dest_domain_lower, "%github.com%") AND like(user, "%dev@company.com%") AND match(url, "(?i)/releases/")) OR
+    (like(dest_domain_lower, "%gitlab.com%") AND like(user, "%dev@company.com%") AND match(url, "(?i)/artifacts/"))
+)
+
+| join type=left user [
+    search index=proxy sourcetype=proxy earliest=-90d bytes_out > 10485760
+    | eval upload_mb = round(bytes_out/1048576, 2)
+    | stats avg(upload_mb) as avg_upload_mb, stdev(upload_mb) as stdev_upload_mb, count as historical_uploads by user
+]
+
+| eval baseline_deviation = if(isnotnull(avg_upload_mb), round((upload_mb - avg_upload_mb) / stdev_upload_mb, 2), 0)
+
+| join type=left src_ip dest_domain user [
+    search index=dlp sourcetype=dlp_alerts
+    | stats values(data_classification) as dlp_classification, sum(sensitive_record_count) as sensitive_records by src_ip, dest_domain, user
+]
+
+| lookup ad_users user OUTPUT department, title, manager
+
+| eval risk_score = 0
+
+| eval risk_score = if(match(dlp_classification, "(?i)PII|PCI|PHI|CONFIDENTIAL"), risk_score + 5, risk_score)
+| eval risk_score = if(match(dlp_classification, "(?i)INTERNAL|PROPRIETARY"), risk_score + 3, risk_score)
+| eval risk_score = if(sensitive_records > 100, risk_score + 3, if(sensitive_records > 10, risk_score + 2, risk_score))
+
+| eval risk_score = if(like(dest_domain_lower, "%mega.nz%") OR like(dest_domain_lower, "%anonfiles%") OR like(dest_domain_lower, "%file.io%"), risk_score + 4, risk_score)
+| eval risk_score = if(match(dest_domain_lower, "(?i)\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"), risk_score + 3, risk_score)
+
+| eval risk_score = if(upload_mb > 500, risk_score + 4, if(upload_mb > 250, risk_score + 3, if(upload_mb > 100, risk_score + 2, risk_score)))
+
+| eval risk_score = if(baseline_deviation > 3, risk_score + 3, if(baseline_deviation > 2, risk_score + 2, risk_score))
+| eval risk_score = if(isnotnull(avg_upload_mb) AND historical_uploads < 5, risk_score + 2, risk_score)
+
+| eval hour = tonumber(strftime(_time, "%H"))
+| eval is_weekend = if(tonumber(strftime(_time, "%w")) == 0 OR tonumber(strftime(_time, "%w")) == 6, 1, 0)
+| eval risk_score = if((hour < 6 OR hour > 20) AND NOT like(user, "%admin%") AND NOT like(user, "%backup%"), risk_score + 2, risk_score)
+| eval risk_score = if(is_weekend == 1 AND NOT like(user, "%admin%") AND NOT like(department, "%IT%"), risk_score + 1, risk_score)
+
+| eval risk_score = if(match(department, "(?i)finance|accounting|legal|hr") AND NOT like(dest_domain_lower, "%sharepoint%") AND NOT like(dest_domain_lower, "%box%"), risk_score + 2, risk_score)
+
+| eval severity = case(
+    risk_score >= 12, "CRITICAL",
+    risk_score >= 8, "HIGH",
+    risk_score >= 5, "MEDIUM",
+    1==1, "LOW"
+)
+
+| where risk_score >= 5
+
+| table _time user src_ip dest_domain upload_mb url dlp_classification sensitive_records department title baseline_deviation historical_uploads risk_score severity
+| sort -risk_score, -upload_mb, -_time
